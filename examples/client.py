@@ -12,14 +12,12 @@ coloredlogs.install(level="DEBUG")  # type: ignore
 
 async def main():
     connection = await whiteproto.open_connection(HOST, PORT, PRESHARED_KEY)
-    while True:
-        connection.write(b"Hello!" * 10000)
+    for i in range(10):
+        connection.write(b"Hello %d" % i)
         await connection.drain()
         data = await connection.read()
-        if not data:
-            break
-        logging.info("Received: %d", len(data))
-        await asyncio.sleep(1)
+        logging.info("Received reply: %s", data)
+    await connection.close()
 
 
 asyncio.run(main())

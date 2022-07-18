@@ -15,7 +15,7 @@ async def on_connection(connection: whiteproto.WhiteConnection):
         data = await connection.read()
         if not data:
             break
-        logging.info("Received: %d", len(data))
+        logging.info("Received: %s", data)
         connection.write(data)
         await connection.drain()
 
