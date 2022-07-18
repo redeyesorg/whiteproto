@@ -107,6 +107,7 @@ class WhiteConnection:
         self._send(CloseConnection.from_attrs(version=self.version, reason=reason))
         self._state = WhiteConnectionState.CLOSED
         self._writer.close()
+        self._reader.feed_eof()
         await self._writer.wait_closed()
 
     async def _initialize_as_server(  # pylint: disable=too-many-return-statements
@@ -318,3 +319,11 @@ class WhiteConnection:
         See StreamWriter.drain() for more information.
         """
         await self._writer.drain()
+
+    async def close(self: "WhiteConnection", reason: CloseConnectionReason = CloseConnectionReason.OK) -> None:
+        """Closes the connection.
+
+        Args:
+            reason: Reason for closing the connection.
+        """
+        await self._close(reason)
