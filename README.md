@@ -4,6 +4,7 @@
 Requires ninja and poetry to be installed.
 
 ```bash
+scripts/makebuild.py
 poetry install
 ninja -v protos
 

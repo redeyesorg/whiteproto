@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+whiteproto/_proto/_compiled
+.ninja_deps
+.ninja_log
+build.ninja
+project.ninja
