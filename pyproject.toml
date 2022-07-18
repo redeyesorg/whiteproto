@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "whiteproto"
+version = "0.1.0"
+description = "Reference implementation of RedEyes Secure Transport Protocol (RSP-5.2022)"
+authors = ["Stanislav <ih3xcode@protonmail.com>"]
+license = "Proprietary"
+
+[tool.redeyes.protoc]
+proto-dir = "proto"
+dest-dir = "whiteproto/_proto/_compiled"
+required-protos = ["org.redeyes.secure"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+protobuf = "^4.21.2"
+cryptography = "^37.0.4"
+coloredlogs = "^15.0.1"
+
+[tool.poetry.dev-dependencies]
+pylint = "^2.13.4"
+flake8-annotations = "^2.8.0"
+flake8-alfred = "^1.1.1"
+flake8-black = "^0.3.2"
+flake8-bugbear = "^22.3.23"
+flake8-comprehensions = "^3.8.0"
+flake8-multiline-containers = "^0.0.18"
+flake8-simplify = "^0.19.2"
+flake8-cognitive-complexity = "^0.1.0"
+flake8-no-pep420 = "^2.2.0"
+flake8-builtins = "^1.5.3"
+flake8-bandit = "^3.0.0"
+flake8-eradicate = "^1.2.0"
+black = "^22.3.0"
+pyproject-flake8 = "^0.0.1-alpha.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+exclude = "_compiled"
+max-line-length = 120
+extend-ignore = "ANN204,E265,E800,E266,B010,S101"
+max-cognitive-complexity = 40
+suppress-none-returning = "true"
+suppress-dummy-args = "true"
+show-source = "true"
