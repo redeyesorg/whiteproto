@@ -3,7 +3,6 @@ import asyncio
 import logging
 import coloredlogs  # type: ignore
 import whiteproto
-from whiteproto.compression import CompressionMode
 from whiteproto._proto import BUFFER_SIZE
 
 PRESHARED_KEY = b"secret"
@@ -15,7 +14,7 @@ coloredlogs.install(level="DEBUG")  # type: ignore
 
 async def main():
     connection = await whiteproto.open_connection(HOST, PORT, PRESHARED_KEY)
-    connection.set_compression_mode(CompressionMode.ENABLED)
+    connection.set_compression_mode(whiteproto.CompressionMode.ENABLED)
     start_time = time.time()
     await connection.write(b"H" * 1000000)
     data = await connection.read()

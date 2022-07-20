@@ -2,7 +2,6 @@ import asyncio
 import logging
 import coloredlogs  # type: ignore
 import whiteproto
-from whiteproto.compression import CompressionMode
 
 PRESHARED_KEY = b"secret"
 HOST = "localhost"
@@ -13,7 +12,7 @@ coloredlogs.install(level="DEBUG")  # type: ignore
 
 async def on_connection(connection: whiteproto.WhiteConnection):
     logging.info("New connection")
-    connection.set_compression_mode(CompressionMode.ENABLED)
+    connection.set_compression_mode(whiteproto.CompressionMode.ENABLED)
     while True:
         data = await connection.read()
         if not data:
