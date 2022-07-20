@@ -72,6 +72,17 @@ class FragmentationMode(enum.Enum):
     REQUIRED = 3
 
 
+class ConnectionClosed(Exception):
+    """Connection closed"""
+
+    def __init__(self, reason: CloseConnectionReason | None = None):
+        if reason is None:
+            message = "Connection closed"
+        else:
+            message = f"Connection closed with code {reason.value} ({reason.name})"
+        super().__init__(message)
+
+
 class WhiteConnection:
     """WhiteProto connection"""
 
@@ -114,7 +125,7 @@ class WhiteConnection:
                     HEADER_SIZE,
                 )
                 self._state = ConnectionState.CLOSED
-                raise RuntimeError("Connection closed") from None
+                raise ConnectionClosed() from None
             message_type, message_length = detect_packet(header)
             if message_type is None:
                 _ = await self._reader.readexactly(message_length)
@@ -129,24 +140,53 @@ class WhiteConnection:
                     message_length,
                 )
                 self._state = ConnectionState.CLOSED
-                raise RuntimeError("Connection closed") from None
+                raise ConnectionClosed() from None
             message = message_type.from_bytes(data)
             if message.version > self.version:
                 continue
             return message
 
-        raise RuntimeError("Connection closed")
+        raise ConnectionClosed()
+
+    def _emergency_read(self: "WhiteConnection") -> AnyMessage | None:
+        buffer: bytearray = self._reader._buffer  # type: ignore
+        while True:
+            if len(buffer) < HEADER_SIZE:
+                break
+            header = bytes(buffer[:HEADER_SIZE])
+            del buffer[:HEADER_SIZE]
+            message_type, message_length = detect_packet(header)
+            if message_type is None:
+                if len(buffer) < message_length:
+                    break
+                del buffer[:message_length]
+                continue
+            if len(buffer) < message_length:
+                break
+            data = bytes(buffer[:message_length])
+            del buffer[:message_length]
+            return message_type.from_bytes(data)
 
     async def _send(self: "WhiteConnection", message: AnyMessage) -> None:
         if self._state == ConnectionState.CLOSED:
-            raise RuntimeError("Connection closed")
+            raise ConnectionClosed()
 
         header = make_header(message)
         data = message.serialize()
 
         self._writer.write(header)
         self._writer.write(data)
-        await self._writer.drain()
+
+        try:
+            await self._writer.drain()
+        except ConnectionResetError:
+            possible_close = self._emergency_read()
+            if possible_close is not None:
+                if isinstance(possible_close, CloseConnection):
+                    self._state = ConnectionState.CLOSED
+                    raise ConnectionClosed(possible_close.reason) from None
+                logger.debug("Whoops. Looks like we broken something")
+            raise
 
     async def _close(self: "WhiteConnection", reason: CloseConnectionReason) -> None:
         await self._send(
@@ -413,6 +453,9 @@ class WhiteConnection:
         Args:
             data: Data to write.
         """
+        if self._state != ConnectionState.ENCRYPTED:
+            raise RuntimeError("Connection is in invalid state")
+
         if len(data) < MAX_DATA_SIZE:
             self._seq += 1
             logger.debug("Encrypting %d bytes", len(data))
