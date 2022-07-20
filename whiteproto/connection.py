@@ -75,7 +75,7 @@ class FragmentationMode(enum.Enum):
 class ConnectionClosed(Exception):
     """Connection closed"""
 
-    def __init__(self, reason: CloseConnectionReason | None = None):
+    def __init__(self: "ConnectionClosed", reason: CloseConnectionReason | None = None):
         if reason is None:
             message = "Connection closed"
         else:
@@ -149,7 +149,7 @@ class WhiteConnection:
         raise ConnectionClosed()
 
     def _emergency_read(self: "WhiteConnection") -> AnyMessage | None:
-        buffer: bytearray = self._reader._buffer  # type: ignore
+        buffer: bytearray = self._reader._buffer  # type: ignore  # pylint: disable=protected-access
         while True:
             if len(buffer) < HEADER_SIZE:
                 break
