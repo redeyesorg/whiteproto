@@ -11,6 +11,7 @@ from whiteproto._proto.wrapper import (
     EncryptedMessage,
     CloseConnectionReason,
     UpgradeProtocolResult,
+    ChunkedData,
     ControlMessage,
     AnyMessage,
     ControlMessageType,
@@ -19,8 +20,10 @@ from whiteproto._proto.wrapper import (
 from whiteproto._proto.parser import detect_packet, make_header, HEADER_SIZE
 
 MIN_VERSION = 0x01
-CURRENT_VERSION = 0x01
-MAX_VERSION = 0x01
+CURRENT_VERSION = 0x02
+MAX_VERSION = 0x02
+
+BUFFER_SIZE = 2**17  # 128KiB
 
 RESTRICTED_VERSIONS: Tuple[int] = (0,)
 
@@ -35,6 +38,7 @@ __all__ = [
     "EncryptedMessage",
     "CloseConnectionReason",
     "UpgradeProtocolResult",
+    "ChunkedData",
     "ControlMessage",
     "AnyMessage",
     "ControlMessageType",

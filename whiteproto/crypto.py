@@ -12,6 +12,8 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
 
+from whiteproto.utils import cpu_bound_async
+
 
 def _generate_random(length: int) -> bytes:
     return os.urandom(length)
@@ -42,7 +44,7 @@ def _verify_signature(
     return True
 
 
-class WhiteCryptoContext:
+class CryptoContext:
     """WhiteProto crypto context."""
 
     _preshared_key: bytes
@@ -52,28 +54,28 @@ class WhiteCryptoContext:
     _session_cryptor: ChaCha20Poly1305
     _session_nonce: bytes
 
-    def __init__(self: "WhiteCryptoContext"):
+    def __init__(self: "CryptoContext"):
         self._private_key = ec.generate_private_key(ec.SECP521R1())
         self._session_nonce = _generate_random(64)
 
     # region Public API
 
-    def get_public_key(self: "WhiteCryptoContext") -> ec.EllipticCurvePublicKey:
+    def get_public_key(self: "CryptoContext") -> ec.EllipticCurvePublicKey:
         """Returns self public key."""
         return self._private_key.public_key()
 
-    def get_public_bytes(self: "WhiteCryptoContext") -> bytes:
+    def get_public_bytes(self: "CryptoContext") -> bytes:
         """Returns self public key as CompressedPoint X962 encoded bytes."""
         return self.get_public_key().public_bytes(
             encoding=Encoding.X962,
             format=PublicFormat.CompressedPoint,
         )
 
-    def get_session_nonce(self: "WhiteCryptoContext") -> bytes:
+    def get_session_nonce(self: "CryptoContext") -> bytes:
         """Returns session nonce."""
         return self._session_nonce
 
-    def set_preshared_key(self: "WhiteCryptoContext", preshared_key: bytes):
+    def set_preshared_key(self: "CryptoContext", preshared_key: bytes):
         """Sets preshared key.
 
         Args:
@@ -81,7 +83,7 @@ class WhiteCryptoContext:
         """
         self._preshared_key = preshared_key
 
-    def set_session_nonce(self: "WhiteCryptoContext", session_nonce: bytes):
+    def set_session_nonce(self: "CryptoContext", session_nonce: bytes):
         """Sets session nonce.
 
         Args:
@@ -89,7 +91,8 @@ class WhiteCryptoContext:
         """
         self._session_nonce = session_nonce
 
-    def set_remote_public_key(self: "WhiteCryptoContext", remote_public_bytes: bytes):
+    @cpu_bound_async
+    def set_remote_public_key(self: "CryptoContext", remote_public_bytes: bytes):
         """Sets remote public key.
 
         Method with side effects. Also calculates shared secret using
@@ -111,7 +114,7 @@ class WhiteCryptoContext:
         self._session_key = derived
         self._session_cryptor = ChaCha20Poly1305(self._session_key)
 
-    def calculate_challenge_response(self: "WhiteCryptoContext") -> bytes:
+    def calculate_challenge_response(self: "CryptoContext") -> bytes:
         """Calculates response for challenge.
 
         Response calculated as SHA512(session_nonce + preshared_key).
@@ -131,7 +134,8 @@ class WhiteCryptoContext:
         hasher.update(self._preshared_key)
         return hasher.finalize()
 
-    def sign(self: "WhiteCryptoContext", data: bytes) -> bytes:
+    @cpu_bound_async
+    def sign(self: "CryptoContext", data: bytes) -> bytes:
         """Signs data.
 
         Args:
@@ -142,8 +146,9 @@ class WhiteCryptoContext:
         """
         return self._private_key.sign(data, ec.ECDSA(hashes.SHA512()))
 
+    @cpu_bound_async
     def verify(
-        self: "WhiteCryptoContext", data: bytes, signature: bytes, origin: Origin
+        self: "CryptoContext", data: bytes, signature: bytes, origin: Origin
     ) -> bool:
         """Verifies signature.
 
@@ -166,9 +171,8 @@ class WhiteCryptoContext:
             else self.get_public_key(),
         )
 
-    def encrypt(
-        self: "WhiteCryptoContext", data: bytes, seq: int
-    ) -> tuple[bytes, bytes]:
+    @cpu_bound_async
+    def encrypt(self: "CryptoContext", data: bytes, seq: int) -> tuple[bytes, bytes]:
         """Encrypts data.
 
         Requires remote public key to be set. Sequence number is
@@ -193,8 +197,9 @@ class WhiteCryptoContext:
         )
         return nonce, ciphertext
 
+    @cpu_bound_async
     def decrypt(
-        self: "WhiteCryptoContext", nonce: bytes, ciphertext: bytes, seq: int
+        self: "CryptoContext", nonce: bytes, ciphertext: bytes, seq: int
     ) -> bytes:
         """Decrypts data.
 

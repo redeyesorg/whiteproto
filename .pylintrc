@@ -3,7 +3,7 @@
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code.
-extension-pkg-allow-list=
+extension-pkg-allow-list=zstd
 
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
@@ -490,10 +490,10 @@ max-parents=7
 max-public-methods=20
 
 # Maximum number of return / yield for function / method body.
-max-returns=6
+max-returns=15
 
 # Maximum number of statements in function / method body.
-max-statements=50
+max-statements=100
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=2

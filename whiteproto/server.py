@@ -1,10 +1,11 @@
-"""WhiteProto server implementation"""
+"""WhiteProto server implementation."""
 
 import logging
 import asyncio
 from typing import Awaitable, Callable
 
-from whiteproto.connection import WhiteConnection, WhitePeerType
+from whiteproto.connection import WhiteConnection, PeerType
+from whiteproto._proto import BUFFER_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +33,14 @@ class WhiteServer:
     async def start(self: "WhiteServer") -> None:
         """Starts server"""
         self.server = await asyncio.start_server(
-            self._handle_client, self.host, self.port
+            self._handle_client, self.host, self.port, limit=BUFFER_SIZE
         )
         logger.info("Server started on %s:%d", self.host, self.port)
 
     async def _handle_client(
         self: "WhiteServer", reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
-        connection = WhiteConnection(reader, writer, WhitePeerType.SERVER)
+        connection = WhiteConnection(reader, writer, PeerType.SERVER)
         if not await connection.initialize(self.preshared_key):
             logger.error("Failed to initialize connection")
             return
