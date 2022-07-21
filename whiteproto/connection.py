@@ -480,8 +480,6 @@ class WhiteConnection:
             raise ValueError(
                 "Data is too large and fragmentation mode is not supported in this version"
             )
-
-        chunks_count = math.ceil(len(data) / MAX_DATA_SIZE)
         async with self._transmission_lock:
             self._seq += 1
             compressed = False
@@ -493,6 +491,7 @@ class WhiteConnection:
                     data = compressed_data
             logger.debug("Encrypting %d bytes", len(data))
             nonce, ciphertext = await self._context.encrypt(data, self._seq)
+            chunks_count = math.ceil(len(ciphertext) / MAX_DATA_SIZE)
             logger.debug("Sending %d chunks", chunks_count)
             await self._send(
                 ChunkedData.from_attrs(
