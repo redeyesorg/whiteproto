@@ -39,17 +39,17 @@ _DESCRIPTOR_MAP_REV = {
     EncryptedMessage: 0xA1,
 }
 
-HEADER_SIZE = struct.calcsize("BI")
+HEADER_SIZE = struct.calcsize("!BI")
 
 
 def detect_packet(data: bytes) -> tuple[AnyMessageType | None, int]:
     """Detect the packet type of the given data"""
-    descriptor, length = struct.unpack("BI", data[:HEADER_SIZE])
+    descriptor, length = struct.unpack("!BI", data[:HEADER_SIZE])
     return _DESCRIPTOR_MAP.get(descriptor, None), length
 
 
 def make_header(message: AnyMessage) -> bytes:
     """Make a header for the given message"""
     return struct.pack(
-        "BI", _DESCRIPTOR_MAP_REV[type(message)], len(message.serialize())
+        "!BI", _DESCRIPTOR_MAP_REV[type(message)], len(message.serialize())
     )
