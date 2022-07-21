@@ -14,8 +14,17 @@ async def on_connection(connection: whiteproto.WhiteConnection):
     logging.info("New connection")
     connection.set_compression_mode(whiteproto.CompressionMode.ENABLED)
     while True:
-        data = await connection.read()
-        if not data:
+        try:
+            data = await connection.read()
+        except whiteproto.ConnectionClosed as err:
+            if err.reason:
+                logging.info(
+                    "Connection closed with code %d (%s)",
+                    err.reason.value,
+                    err.reason.name,
+                )
+            else:
+                logging.info("Connection closed")
             break
         logging.info("Received message with size %d", len(data))
         await connection.write(data)

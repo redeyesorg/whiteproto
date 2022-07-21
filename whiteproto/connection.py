@@ -75,11 +75,14 @@ class FragmentationMode(enum.Enum):
 class ConnectionClosed(Exception):
     """Connection closed"""
 
+    reason: CloseConnectionReason | None = None
+
     def __init__(self: "ConnectionClosed", reason: CloseConnectionReason | None = None):
         if reason is None:
             message = "Connection closed"
         else:
             message = f"Connection closed with code {reason.value} ({reason.name})"
+        self.reason = reason
         super().__init__(message)
 
 
@@ -529,17 +532,23 @@ class WhiteConnection:
             else:
                 logger.debug("Fragmented data received")
             self._seq += 1
+            if self._seq != message.seq:
+                logger.error("Expected seq %d, got %d", self._seq, message.seq)
+                await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                raise ConnectionClosed()
             buffer = b""
             for _ in range(message.count):
                 chunk = await self._wait_next_message()
                 if not isinstance(chunk, EncryptedMessage):
                     logger.error("Expected encrypted message, got %s", chunk)
                     await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                    raise ConnectionClosed()
                 if chunk.nonce != b"CHUNKED":
                     logger.error(
                         "Expected encrypted message nonce CHUNKED, got %s", chunk
                     )
                     await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                    raise ConnectionClosed()
                 buffer += chunk.ciphertext
             logger.debug("Decrypting")
             data = await self._context.decrypt(message.nonce, buffer, message.seq)
@@ -549,16 +558,21 @@ class WhiteConnection:
             return data
         if isinstance(message, EncryptedMessage):
             self._seq += 1
+            if self._seq != message.seq:
+                logger.error(
+                    "Expected encrypted message seq %d, got %d", self._seq, message.seq
+                )
+                await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                raise ConnectionClosed()
             return await self._context.decrypt(
                 message.nonce, message.ciphertext, message.seq
             )
         if isinstance(message, CloseConnection):
-            logger.error("Connection closed: %s", message.reason)
             self._state = ConnectionState.CLOSED
-            return b""
+            raise ConnectionClosed(message.reason)
         logger.error("Expected encrypted message, got %s", message)
         await self._close(CloseConnectionReason.PROTOCOL_ERROR)
-        return b""
+        raise ConnectionClosed()
 
     async def close(
         self: "WhiteConnection",

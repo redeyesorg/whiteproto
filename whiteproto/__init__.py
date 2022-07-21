@@ -2,7 +2,7 @@
 
 from whiteproto.client import open_connection
 from whiteproto.server import WhiteServer
-from whiteproto.connection import WhiteConnection, FragmentationMode
+from whiteproto.connection import WhiteConnection, FragmentationMode, ConnectionClosed
 from whiteproto.compression import CompressionMode
 from whiteproto._proto import CloseConnectionReason
 
@@ -14,4 +14,5 @@ __all__ = [
     "CloseConnectionReason",
     "FragmentationMode",
     "CompressionMode",
+    "ConnectionClosed",
 ]
