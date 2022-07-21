@@ -5,3 +5,4 @@ whiteproto/_proto/_compiled
 .ninja_log
 build.ninja
 project.ninja
+dist/

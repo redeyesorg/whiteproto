@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Reference implementation of RedEyes Secure Transport Protocol (RSP-5.2022)"
 authors = ["Stanislav <ih3xcode@protonmail.com>"]
 license = "Proprietary"
+include = ["whiteproto/_proto/_compiled/**/*_pb2.py"]
 
 [tool.redeyes.protoc]
 proto-dir = "proto"
