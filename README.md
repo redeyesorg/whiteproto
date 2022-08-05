@@ -1,16 +1,43 @@
 # WhiteProto reference implementation
 
-## Run
-Requires ninja and poetry to be installed.
+## Build
 
-```bash
-scripts/makebuild.py
-poetry install
-ninja -v protos
+### Docker (recommended)
+Requires docker
 
-# run server
-poetry run examples/server.py
+```sh
+# Build builder
+docker build -f docker/Dockerfile -t whiteproto-builder .
 
-# run client
-poetry run examples/client.py
+# Build project with builder
+docker run -v $PWD:/src whiteproto-builder
 ```
+
+### Local
+Requires ninja, poetry, and protoc 3.19.0+
+
+```sh
+scripts/makebuild.py
+ninja -v protos
+poetry build
+```
+
+## Install
+Install from artifacts generated at [Build](#build) stage.
+
+```sh
+pip install dist/whiteproto-*-py3-none-any.whl
+```
+
+## Run examples
+
+### Server
+```sh
+python examples/server.py
+```
+
+### Client
+```sh
+python examples/client.py
+```
+
