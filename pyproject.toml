@@ -13,7 +13,7 @@ required-protos = ["org.redeyes.secure"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-protobuf = "^4.21.2"
+protobuf = "^4.21.6"
 cryptography = "^37.0.4"
 coloredlogs = "^15.0.1"
 zstd = "^1.5.2"
