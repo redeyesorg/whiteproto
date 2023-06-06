@@ -8,6 +8,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Setup Ninja
+      uses: ashutoshvarma/setup-ninja@master
+      with:
+        version: 1.11.1
+
     - name: Install Poetry
       uses: snok/install-poetry@v1
 
