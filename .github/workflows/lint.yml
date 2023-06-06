@@ -15,7 +15,7 @@ jobs:
       run: poetry install
 
     - name: Make build files
-      run: scripts/makebuild.py
+      run: poetry run python scripts/makebuild.py
 
     - name: Generate protos
       run: ninja -v protos

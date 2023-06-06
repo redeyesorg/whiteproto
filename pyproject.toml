@@ -6,6 +6,9 @@ authors = ["Stanislav <ih3xcode@protonmail.com>"]
 license = "Proprietary"
 include = ["whiteproto/_proto/_compiled/**/*_pb2.py"]
 
+[tool.poetry.group.dev.dependencies]
+toml = "^0.10.2"
+
 [tool.redeyes.protoc]
 proto-dir = "proto"
 dest-dir = "whiteproto/_proto/_compiled"
