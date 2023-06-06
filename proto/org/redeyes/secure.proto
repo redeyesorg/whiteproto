@@ -1,0 +1,85 @@
+/* whiteproto (RedEyes Secure Transport Protocol)
+ * Layer 5 protocol for secure communication over a TCP connection.
+ * Uses ECDHE, ChaCha20 Poly1305, and SHA-512 for encryption.
+ */
+
+syntax = "proto3";
+
+package org.redeyes.secure;
+
+// Layer 1
+
+// DESCRIPTOR 0x01
+message ClientHello {
+  uint32 version = 1; // protocol version
+  bytes pubkey = 2;   // Client ECC public key in X962 compressed point format
+}
+
+// DESCRIPTOR 0x02
+message ServerHello {
+  uint32 version = 1; // protocol version
+  bytes pubkey = 2;   // Server ECC public key in X962 compressed point format
+  bytes nonce = 3;    // random nonce for pre-shared verification (64 bytes)
+}
+
+// DESCRIPTOR 0x03
+message UpgradeProtocolAsk {
+  uint32 version = 1;     // protocol version
+  uint32 new_version = 2; // new protocol version
+}
+
+// DESCRIPTOR 0x04
+message UpgradeProtocolAck {
+  uint32 version = 1; // new or same protocol version
+  enum UpgradeProtocolResult {
+    OK = 0;
+    ERROR = 1;
+  }
+  UpgradeProtocolResult result = 3;
+}
+
+// DESCRIPTOR 0x05
+message ClientChallengeResponse {
+  uint32 version = 1; // protocol version
+  bytes nonce = 2;    // nonce from server (64 bytes)
+  bytes sig = 3;      // ECDSA signature of hash
+  bytes hash = 4;     // SHA-512 hash of nonce + pre-shared key
+}
+
+// DESCRIPTOR 0x06
+message CloseConnection {
+  uint32 version = 1;
+  enum CloseConnectionReason {
+    UNKNOWN = 0;
+    PROTOCOL_ERROR = 1;
+    HANDSHAKE_FAILED = 2;
+    ENCRYPTION_ERROR = 3;
+    TIMEOUT = 4;
+    AGAIN = 5;
+    OK = 6;
+  }
+  CloseConnectionReason reason = 2;
+}
+
+// DESCRIPTOR 0xA1
+message EncryptedMessage {
+  uint32 version = 1;   // protocol version
+  uint32 seq = 2;       // message sequence number, authenticated with Poly1305
+  bytes nonce = 3;      // encryption nonce
+  bytes ciphertext = 4; // encrypted message with authentication tag
+}
+
+// endregion
+
+// region Layer 2
+
+// DESCRIPTOR 0x07
+message ChunkedData {
+  uint32 version = 1;  // protocol version
+  uint32 seq = 2;      // sequence number as in EncryptedMessage
+  uint32 count = 3;    // number of chunks
+  bytes nonce = 4;     // encryption nonce
+  bool compressed = 5; // true if compressed
+}
+
+// endregion
