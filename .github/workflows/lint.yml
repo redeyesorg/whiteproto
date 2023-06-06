@@ -1,0 +1,24 @@
+name: Lint
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Make build files
+      run: scripts/makebuild.py
+
+    - name: Generate protos
+      run: ninja -v protos
+
+    - name: Run linters
+      run: ninja -v lint

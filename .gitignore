@@ -6,3 +6,4 @@ whiteproto/_proto/_compiled
 build.ninja
 project.ninja
 dist/
+.mypy_cache/
