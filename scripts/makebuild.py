@@ -80,7 +80,9 @@ ninja_writer.variable("poetry", poetry_executable)
 
 ninja_writer.variable("protoc_args", f"-I{proto_dir} --python_out={dest_dir}")
 
-ninja_writer.variable("isort_args", "--profile black --check-only --diff")
+ninja_writer.variable(
+    "isort_args", "--profile black --check-only --diff --skip whiteproto/_proto/**/*"
+)
 ninja_writer.variable("black_args", "--check --diff")
 ninja_writer.variable("flake8_args", "--benchmark --statistics")
 
