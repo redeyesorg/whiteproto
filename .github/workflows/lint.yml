@@ -27,8 +27,5 @@ jobs:
     - name: Make build files
       run: poetry run python scripts/makebuild.py
 
-    - name: Generate protos
-      run: ninja -v protos
-
     - name: Run linters
       run: ninja -v lint
