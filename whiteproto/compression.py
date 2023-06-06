@@ -1,8 +1,9 @@
 """Compression wrappers."""
 import enum
+
 import zstd  # type: ignore
 
-from whiteproto.utils import cpu_bound_async  # type: ignore
+from whiteproto.async_executor import cpu_bound_async  # type: ignore
 
 
 class CompressionMode(enum.Enum):
@@ -14,7 +15,14 @@ class CompressionMode(enum.Enum):
 
 @cpu_bound_async
 def compress(data: bytes) -> bytes:
-    """Compress data."""
+    """Compress data.
+
+    Args:
+        data: Data to compress
+
+    Returns:
+        Compressed data
+    """
     if not data:
         return b""
     return zstd.compress(data)  # type: ignore
@@ -22,7 +30,14 @@ def compress(data: bytes) -> bytes:
 
 @cpu_bound_async
 def decompress(data: bytes) -> bytes:
-    """Decompress data."""
+    """Decompress data.
+
+    Args:
+        data: Data to decompress
+
+    Returns:
+        Decompressed data
+    """
     if not data:
         return b""
     return zstd.decompress(data)  # type: ignore

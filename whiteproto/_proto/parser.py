@@ -4,15 +4,15 @@ import struct
 
 from whiteproto._proto.wrapper import (
     AnyMessage,
+    AnyMessageType,
     ChunkedData,
+    ClientChallengeResponse,
     ClientHello,
     CloseConnection,
-    ServerHello,
-    UpgradeProtocolAsk,
-    UpgradeProtocolAck,
-    ClientChallengeResponse,
     EncryptedMessage,
-    AnyMessageType,
+    ServerHello,
+    UpgradeProtocolAck,
+    UpgradeProtocolAsk,
 )
 
 _DESCRIPTOR_MAP = {

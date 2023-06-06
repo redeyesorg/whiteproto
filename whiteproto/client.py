@@ -1,8 +1,8 @@
 """WhiteProto client."""
 import asyncio
 
-from whiteproto.connection import FragmentationMode, WhiteConnection, PeerType
 from whiteproto._proto import BUFFER_SIZE
+from whiteproto.connection import FragmentationMode, PeerType, WhiteConnection
 
 
 async def open_connection(
@@ -17,6 +17,7 @@ async def open_connection(
         host: Server host
         port: Server port
         preshared_key: Preshared key
+        fragmentation_mode: Fragmentation mode
 
     Returns:
         WhiteConnection

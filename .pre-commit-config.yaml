@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: debug-statements
+
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+        exclude: ^(whiteproto/_proto/)
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        exclude: ^(whiteproto/_proto/)
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        exclude: ^(whiteproto/_proto/)
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: "./run_mypy.sh"
+        language: system
+        types: [python]
+        exclude: ^(whiteproto/_proto/)
+        require_serial: true
+        verbose: true

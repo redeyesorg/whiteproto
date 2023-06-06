@@ -1,39 +1,38 @@
 """WhiteProto connection implementation."""
+import asyncio
 import enum
 import logging
-import asyncio
 import math
 
-# from typing import Awaitable, Callable
-
 from whiteproto._proto import (
+    BUFFER_SIZE,
     CURRENT_VERSION,
     HEADER_SIZE,
-    BUFFER_SIZE,
     MAX_VERSION,
     MIN_VERSION,
     RESTRICTED_VERSIONS,
-    detect_packet,
-    make_header,
     AnyMessage,
-    CloseConnection,
-    CloseConnectionReason,
-    UpgradeProtocolResult,
-    UpgradeProtocolAsk,
-    UpgradeProtocolAck,
+    ChunkedData,
     ClientChallengeResponse,
     ClientHello,
-    ServerHello,
+    CloseConnection,
+    CloseConnectionReason,
     EncryptedMessage,
-    ChunkedData,
+    ServerHello,
+    UpgradeProtocolAck,
+    UpgradeProtocolAsk,
+    UpgradeProtocolResult,
+    detect_packet,
+    make_header,
 )
 from whiteproto.compression import CompressionMode, compress, decompress
-from whiteproto.crypto import Origin, CryptoContext
-
+from whiteproto.crypto import CryptoContext, Origin
 
 logger = logging.getLogger(__name__)
 
 MAX_DATA_SIZE = BUFFER_SIZE - 4096  # Leave 4096 bytes for protocol needs
+
+EXPECTED_ENCRYPTED_MESSAGE_ERROR = "Expected encrypted message, got %s"
 
 
 class ConnectionState(enum.Enum):
@@ -63,8 +62,8 @@ class FragmentationMode(enum.Enum):
     NOT_REQUIRED - Fragmentation is not required.
     OPTIONAL - Fragmentation will be enabled if possible.
     REQUIRED - Fragmentation is required. If the protocol cannot
-        be upgraded to the required version, an exception will be
-        thrown.
+    be upgraded to the required version, an exception will be
+    thrown.
     """
 
     NOT_REQUIRED = 1
@@ -72,12 +71,14 @@ class FragmentationMode(enum.Enum):
     REQUIRED = 3
 
 
-class ConnectionClosed(Exception):
+class ConnectionClosedError(Exception):
     """Connection closed"""
 
     reason: CloseConnectionReason | None = None
 
-    def __init__(self: "ConnectionClosed", reason: CloseConnectionReason | None = None):
+    def __init__(
+        self: "ConnectionClosedError", reason: CloseConnectionReason | None = None
+    ):
         if reason is None:
             message = "Connection closed"
         else:
@@ -86,7 +87,7 @@ class ConnectionClosed(Exception):
         super().__init__(message)
 
 
-class WhiteConnection:
+class WhiteConnection:  # noqa: WPS306
     """WhiteProto connection"""
 
     _reader: asyncio.StreamReader
@@ -115,8 +116,218 @@ class WhiteConnection:
         self._transmission_lock = asyncio.Lock()
         self._loop = asyncio.get_event_loop()
 
+    async def initialize(self: "WhiteConnection", preshared_key: bytes) -> bool:
+        """Initializes whiteproto connection
+
+        This method must be called before any other method.
+
+        Args:
+            preshared_key: Preshared key to use for authentication.
+
+        Returns:
+            True if handshake was successful, False otherwise.
+
+        Raises:
+            ValueError: If connection is already initialized.
+        """
+        if self._state == ConnectionState.CLOSED:
+            logger.error("Connection is closed")
+            return False
+        if self._state == ConnectionState.ENCRYPTED:
+            logger.error("Connection is already encrypted")
+            return False
+        async with self._transmission_lock:
+            self._state = ConnectionState.HANDSHAKE
+            if self._peer_type == PeerType.CLIENT:
+                return await self._initialize_as_client(preshared_key)
+            if self._peer_type == PeerType.SERVER:
+                return await self._initialize_as_server(preshared_key)
+        raise ValueError("Unknown peer type")
+
+    def set_fragmentation_mode(
+        self: "WhiteConnection", mode: FragmentationMode
+    ) -> None:
+        """Sets fragmentation mode for this connection.
+
+        Args:
+            mode: Fragmentation mode to use.
+
+        Raises:
+            ValueError: If fragmentation mode is not supported.
+        """
+        if CURRENT_VERSION < 2:
+            raise ValueError("Fragmentation is not supported in this version")
+        if self._peer_type == PeerType.SERVER:
+            raise ValueError("Fragmentation can only be set by client")
+        self._fragmentation_mode = mode
+
+    def set_compression_mode(self: "WhiteConnection", mode: CompressionMode) -> None:
+        """Sets compression mode for this connection.
+
+        Args:
+            mode: Compression mode to use.
+
+        Raises:
+            ValueError: If compression mode is not supported.
+        """
+        if CURRENT_VERSION < 2:
+            raise ValueError("Compression is not supported in this version")
+        self._compression_mode = mode
+
+    async def write(self: "WhiteConnection", data: bytes) -> None:
+        """Writes data to the connection.
+
+        Args:
+            data: Data to write.
+
+        Raises:
+            RuntimeError: If connection is in invalid state.
+            ValueError: If data is too large for this connection.
+        """
+        if self._state != ConnectionState.ENCRYPTED:
+            raise RuntimeError("Connection is in invalid state")
+
+        data_len = len(data)
+
+        if data_len < MAX_DATA_SIZE:
+            self._seq += 1
+            logger.debug("Encrypting %d bytes", data_len)
+            nonce, ciphertext = await self._context.encrypt(data, self._seq)
+            await self._send(
+                EncryptedMessage.from_attrs(
+                    version=self.version,
+                    seq=self._seq,
+                    nonce=nonce,
+                    ciphertext=ciphertext,
+                )
+            )
+            return
+        if self._fragmentation_mode == FragmentationMode.NOT_REQUIRED:
+            raise ValueError(
+                "Data is too large for this connection, enable fragmentation"
+            )
+        if self.version < 2:  # Fragmentation available from version 2
+            raise ValueError(
+                "Data is too large and fragmentation mode is not supported in this version"
+            )
+        async with self._transmission_lock:
+            self._seq += 1
+            compressed = False
+            if self._compression_mode == CompressionMode.ENABLED:
+                logger.debug("Compressing %d bytes", data_len)
+                compressed_data = await compress(data)
+                if len(compressed_data) < data_len:
+                    compressed = True
+                    data = compressed_data
+            logger.debug("Encrypting %d bytes", len(data))
+            nonce, ciphertext = await self._context.encrypt(data, self._seq)
+            chunks_count = math.ceil(len(ciphertext) / MAX_DATA_SIZE)
+            logger.debug("Sending %d chunks", chunks_count)
+            await self._send(
+                ChunkedData.from_attrs(
+                    version=self.version,
+                    seq=self._seq,
+                    count=chunks_count,
+                    nonce=nonce,
+                    compressed=compressed,
+                )
+            )
+            for idx in range(chunks_count):
+                await self._send(
+                    EncryptedMessage.from_attrs(
+                        version=self.version,
+                        seq=self._seq,
+                        nonce=b"CHUNKED",
+                        ciphertext=ciphertext[
+                            idx
+                            * MAX_DATA_SIZE : (idx + 1)  # noqa: E203
+                            * MAX_DATA_SIZE
+                        ],
+                    )
+                )
+
+    async def read(self: "WhiteConnection") -> bytes:  # noqa: WPS231
+        """Reads data from the connection.
+
+        Returns:
+            Data read.
+
+        Raises:
+            RuntimeError: If connection is in invalid state.
+            ConnectionClosedError: If connection is closed.
+        """
+        if self._state != ConnectionState.ENCRYPTED:
+            raise RuntimeError("Connection is in invalid state")
+
+        message = await self._wait_next_message()
+        if isinstance(message, ChunkedData):
+            if message.compressed:
+                logger.debug("Fragmented+compressed data received")
+            else:
+                logger.debug("Fragmented data received")
+            self._seq += 1
+            if self._seq != message.seq:
+                logger.error("Expected seq %d, got %d", self._seq, message.seq)
+                await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                raise ConnectionClosedError()
+            buffer = b""
+            for _ in range(message.count):
+                chunk = await self._wait_next_message()
+                if not isinstance(chunk, EncryptedMessage):
+                    logger.error(EXPECTED_ENCRYPTED_MESSAGE_ERROR, chunk)
+                    await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                    raise ConnectionClosedError()
+                if chunk.nonce != b"CHUNKED":
+                    logger.error(
+                        "Expected encrypted message nonce CHUNKED, got %s", chunk
+                    )
+                    await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                    raise ConnectionClosedError()
+                buffer += chunk.ciphertext
+            logger.debug("Decrypting")
+            data = await self._context.decrypt(message.nonce, buffer, message.seq)
+            if message.compressed:
+                logger.debug("Decompressing")
+                data = await decompress(data)
+            return data
+        if isinstance(message, EncryptedMessage):
+            self._seq += 1
+            if self._seq != message.seq:
+                logger.error(
+                    "Expected encrypted message seq %d, got %d", self._seq, message.seq
+                )
+                await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+                raise ConnectionClosedError()
+            return await self._context.decrypt(
+                message.nonce, message.ciphertext, message.seq
+            )
+        if isinstance(message, CloseConnection):
+            self._state = ConnectionState.CLOSED
+            raise ConnectionClosedError(message.reason)
+        logger.error(EXPECTED_ENCRYPTED_MESSAGE_ERROR, message)
+        await self._close(CloseConnectionReason.PROTOCOL_ERROR)
+        raise ConnectionClosedError()
+
+    async def close(
+        self: "WhiteConnection",
+        reason: CloseConnectionReason = CloseConnectionReason.OK,
+    ) -> None:
+        """Closes the connection.
+
+        Args:
+            reason: Reason for closing the connection.
+        """
+        await self._close(reason)
+
     async def _wait_next_message(self: "WhiteConnection") -> AnyMessage:
-        """Wait for the next message from the server."""
+        """Wait for the next message from the server.
+
+        Returns:
+            Next message from the server.
+
+        Raises:
+            ConnectionClosedError: If connection is closed.
+        """
         while self._state != ConnectionState.CLOSED:
             try:
                 header = await self._reader.readexactly(HEADER_SIZE)
@@ -128,31 +339,33 @@ class WhiteConnection:
                     HEADER_SIZE,
                 )
                 self._state = ConnectionState.CLOSED
-                raise ConnectionClosed() from None
+                raise ConnectionClosedError() from None
             message_type, message_length = detect_packet(header)
             if message_type is None:
-                _ = await self._reader.readexactly(message_length)
+                await self._reader.readexactly(message_length)
                 logger.debug("Received unknown message type")
                 continue
             try:
                 data = await self._reader.readexactly(message_length)
-            except asyncio.IncompleteReadError as err:
+            except asyncio.IncompleteReadError as err:  # noqa: WPS440
                 logger.error(
                     "Received message with len %d, required len is %d",
                     len(err.partial),
                     message_length,
                 )
                 self._state = ConnectionState.CLOSED
-                raise ConnectionClosed() from None
+                raise ConnectionClosedError() from None
             message = message_type.from_bytes(data)
             if message.version > self.version:
                 continue
             return message
 
-        raise ConnectionClosed()
+        raise ConnectionClosedError()
 
     def _emergency_read(self: "WhiteConnection") -> AnyMessage | None:
-        buffer: bytearray = self._reader._buffer  # type: ignore  # pylint: disable=protected-access
+        buffer: bytearray = self._reader._buffer  # type: ignore  # noqa: WPS437
+        if not isinstance(buffer, bytearray):
+            return None
         while True:
             if len(buffer) < HEADER_SIZE:
                 break
@@ -169,10 +382,11 @@ class WhiteConnection:
             data = bytes(buffer[:message_length])
             del buffer[:message_length]
             return message_type.from_bytes(data)
+        return None
 
     async def _send(self: "WhiteConnection", message: AnyMessage) -> None:
         if self._state == ConnectionState.CLOSED:
-            raise ConnectionClosed()
+            raise ConnectionClosedError()
 
         header = make_header(message)
         data = message.serialize()
@@ -187,8 +401,8 @@ class WhiteConnection:
             if possible_close is not None:
                 if isinstance(possible_close, CloseConnection):
                     self._state = ConnectionState.CLOSED
-                    raise ConnectionClosed(possible_close.reason) from None
-                logger.debug("Whoops. Looks like we broken something")
+                    raise ConnectionClosedError(possible_close.reason) from None
+                logger.debug("Whoops. Looks like we broke something")
             raise
 
     async def _close(self: "WhiteConnection", reason: CloseConnectionReason) -> None:
@@ -200,7 +414,7 @@ class WhiteConnection:
         self._reader.feed_eof()
         await self._writer.wait_closed()
 
-    async def _initialize_as_server(  # pylint: disable=too-many-return-statements
+    async def _initialize_as_server(  # noqa: WPS217, WPS212, WPS213
         self: "WhiteConnection", preshared_key: bytes
     ) -> bool:
         self._fragmentation_mode = FragmentationMode.OPTIONAL
@@ -224,7 +438,7 @@ class WhiteConnection:
         response = await self._wait_next_message()
         if isinstance(response, UpgradeProtocolAsk):
             logger.debug("Received protocol upgrade request")
-            if (
+            if (  # noqa: WPS337
                 response.new_version > MAX_VERSION
                 or response.new_version < MIN_VERSION
                 or response.new_version in RESTRICTED_VERSIONS
@@ -284,7 +498,7 @@ class WhiteConnection:
 
         client_encrypted = await self._wait_next_message()
         if not isinstance(client_encrypted, EncryptedMessage):
-            logger.error("Expected encrypted message, got %s", client_encrypted)
+            logger.error(EXPECTED_ENCRYPTED_MESSAGE_ERROR, client_encrypted)
             await self._close(CloseConnectionReason.PROTOCOL_ERROR)
             return False
         if client_encrypted.seq != 2:
@@ -304,7 +518,7 @@ class WhiteConnection:
         self._state = ConnectionState.ENCRYPTED
         return True
 
-    async def _initialize_as_client(
+    async def _initialize_as_client(  # noqa: WPS217, WPS212, WPS213
         self: "WhiteConnection", preshared_key: bytes
     ) -> bool:
         self._context.set_preshared_key(preshared_key)
@@ -367,7 +581,7 @@ class WhiteConnection:
             self._state = ConnectionState.CLOSED
             return False
         if not isinstance(server_encrypted, EncryptedMessage):
-            logger.error("Expected encrypted message, got %s", server_encrypted)
+            logger.error(EXPECTED_ENCRYPTED_MESSAGE_ERROR, server_encrypted)
             await self._close(CloseConnectionReason.PROTOCOL_ERROR)
             return False
         if server_encrypted.seq != 1:
@@ -396,190 +610,3 @@ class WhiteConnection:
         logger.debug("Handshake completed. Connection is now encrypted")
         self._state = ConnectionState.ENCRYPTED
         return True
-
-    async def initialize(self: "WhiteConnection", preshared_key: bytes) -> bool:
-        """Initializes whiteproto connection
-
-        This method must be called before any other method.
-
-        Args:
-            preshared_key: Preshared key to use for authentication.
-
-        Returns:
-            True if handshake was successful, False otherwise.
-        """
-        if self._state == ConnectionState.CLOSED:
-            logger.error("Connection is closed")
-            return False
-        if self._state == ConnectionState.ENCRYPTED:
-            logger.error("Connection is already encrypted")
-            return False
-        async with self._transmission_lock:
-            self._state = ConnectionState.HANDSHAKE
-            if self._peer_type == PeerType.CLIENT:
-                return await self._initialize_as_client(preshared_key)
-            if self._peer_type == PeerType.SERVER:
-                return await self._initialize_as_server(preshared_key)
-        raise ValueError("Unknown peer type")
-
-    def set_fragmentation_mode(self: "WhiteConnection", mode: FragmentationMode):
-        """Sets fragmentation mode for this connection.
-
-        Args:
-            mode: Fragmentation mode to use.
-
-        Raises:
-            ValueError: If fragmentation mode is not supported.
-        """
-        if CURRENT_VERSION < 2:
-            raise ValueError("Fragmentation is not supported in this version")
-        if self._peer_type == PeerType.SERVER:
-            raise ValueError("Fragmentation can only be set by client")
-        self._fragmentation_mode = mode
-
-    def set_compression_mode(self: "WhiteConnection", mode: CompressionMode):
-        """Sets compression mode for this connection.
-
-        Args:
-            mode: Compression mode to use.
-
-        Raises:
-            ValueError: If compression mode is not supported.
-        """
-        if CURRENT_VERSION < 2:
-            raise ValueError("Compression is not supported in this version")
-        self._compression_mode = mode
-
-    async def write(self: "WhiteConnection", data: bytes) -> None:
-        """Writes data to the connection.
-
-        Args:
-            data: Data to write.
-        """
-        if self._state != ConnectionState.ENCRYPTED:
-            raise RuntimeError("Connection is in invalid state")
-
-        if len(data) < MAX_DATA_SIZE:
-            self._seq += 1
-            logger.debug("Encrypting %d bytes", len(data))
-            nonce, ciphertext = await self._context.encrypt(data, self._seq)
-            await self._send(
-                EncryptedMessage.from_attrs(
-                    version=self.version,
-                    seq=self._seq,
-                    nonce=nonce,
-                    ciphertext=ciphertext,
-                )
-            )
-            return
-        if self._fragmentation_mode == FragmentationMode.NOT_REQUIRED:
-            raise ValueError(
-                "Data is too large for this connection, enable fragmentation"
-            )
-        if self.version < 2:  # Fragmentation available from version 2
-            raise ValueError(
-                "Data is too large and fragmentation mode is not supported in this version"
-            )
-        async with self._transmission_lock:
-            self._seq += 1
-            compressed = False
-            if self._compression_mode == CompressionMode.ENABLED:
-                logger.debug("Compressing %d bytes", len(data))
-                compressed_data = await compress(data)
-                if len(compressed_data) < len(data):
-                    compressed = True
-                    data = compressed_data
-            logger.debug("Encrypting %d bytes", len(data))
-            nonce, ciphertext = await self._context.encrypt(data, self._seq)
-            chunks_count = math.ceil(len(ciphertext) / MAX_DATA_SIZE)
-            logger.debug("Sending %d chunks", chunks_count)
-            await self._send(
-                ChunkedData.from_attrs(
-                    version=self.version,
-                    seq=self._seq,
-                    count=chunks_count,
-                    nonce=nonce,
-                    compressed=compressed,
-                )
-            )
-            for idx in range(chunks_count):
-                await self._send(
-                    EncryptedMessage.from_attrs(
-                        version=self.version,
-                        seq=self._seq,
-                        nonce=b"CHUNKED",
-                        ciphertext=ciphertext[
-                            idx
-                            * MAX_DATA_SIZE : (idx + 1)  # noqa: E203
-                            * MAX_DATA_SIZE
-                        ],
-                    )
-                )
-
-    async def read(self: "WhiteConnection") -> bytes:
-        """Reads data from the connection.
-
-        Returns:
-            Data read.
-        """
-        if self._state != ConnectionState.ENCRYPTED:
-            raise RuntimeError("Connection is in invalid state")
-        message = await self._wait_next_message()
-        if isinstance(message, ChunkedData):
-            if message.compressed:
-                logger.debug("Fragmented+compressed data received")
-            else:
-                logger.debug("Fragmented data received")
-            self._seq += 1
-            if self._seq != message.seq:
-                logger.error("Expected seq %d, got %d", self._seq, message.seq)
-                await self._close(CloseConnectionReason.PROTOCOL_ERROR)
-                raise ConnectionClosed()
-            buffer = b""
-            for _ in range(message.count):
-                chunk = await self._wait_next_message()
-                if not isinstance(chunk, EncryptedMessage):
-                    logger.error("Expected encrypted message, got %s", chunk)
-                    await self._close(CloseConnectionReason.PROTOCOL_ERROR)
-                    raise ConnectionClosed()
-                if chunk.nonce != b"CHUNKED":
-                    logger.error(
-                        "Expected encrypted message nonce CHUNKED, got %s", chunk
-                    )
-                    await self._close(CloseConnectionReason.PROTOCOL_ERROR)
-                    raise ConnectionClosed()
-                buffer += chunk.ciphertext
-            logger.debug("Decrypting")
-            data = await self._context.decrypt(message.nonce, buffer, message.seq)
-            if message.compressed:
-                logger.debug("Decompressing")
-                data = await decompress(data)
-            return data
-        if isinstance(message, EncryptedMessage):
-            self._seq += 1
-            if self._seq != message.seq:
-                logger.error(
-                    "Expected encrypted message seq %d, got %d", self._seq, message.seq
-                )
-                await self._close(CloseConnectionReason.PROTOCOL_ERROR)
-                raise ConnectionClosed()
-            return await self._context.decrypt(
-                message.nonce, message.ciphertext, message.seq
-            )
-        if isinstance(message, CloseConnection):
-            self._state = ConnectionState.CLOSED
-            raise ConnectionClosed(message.reason)
-        logger.error("Expected encrypted message, got %s", message)
-        await self._close(CloseConnectionReason.PROTOCOL_ERROR)
-        raise ConnectionClosed()
-
-    async def close(
-        self: "WhiteConnection",
-        reason: CloseConnectionReason = CloseConnectionReason.OK,
-    ) -> None:
-        """Closes the connection.
-
-        Args:
-            reason: Reason for closing the connection.
-        """
-        await self._close(reason)

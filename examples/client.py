@@ -1,7 +1,10 @@
-import time
 import asyncio
 import logging
+import os
+import time
+
 import coloredlogs  # type: ignore
+
 import whiteproto
 from whiteproto._proto import BUFFER_SIZE
 
@@ -16,7 +19,7 @@ async def main():
     connection = await whiteproto.open_connection(HOST, PORT, PRESHARED_KEY)
     connection.set_compression_mode(whiteproto.CompressionMode.ENABLED)
     start_time = time.time()
-    await connection.write(b"H" * 1000000)
+    await connection.write(os.urandom(1024 * 1024))
     data = await connection.read()
     logging.info(
         "Buffer size %d kB. Operation took: %.2f seconds. Speed is: %.2f MB/s",
@@ -25,5 +28,6 @@ async def main():
         len(data) / (time.time() - start_time) / 1024 / 1024 * 2,
     )
     await connection.close()
+
 
 asyncio.run(main())

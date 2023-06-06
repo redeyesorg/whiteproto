@@ -1,19 +1,19 @@
-"""Utils."""
+"""Async executor."""
 
-from typing import Awaitable, Callable, TypeVar, ParamSpec
-import atexit
 import asyncio
+import atexit
 import functools
-import concurrent.futures
+from concurrent import futures
+from typing import Awaitable, Callable, ParamSpec, TypeVar
 
-_T = TypeVar("_T")
-_P = ParamSpec("_P")
+T = TypeVar("T")  # noqa: WPS111
+P = ParamSpec("P")  # noqa: WPS111
 
-_executor = concurrent.futures.ThreadPoolExecutor()
+_executor = futures.ThreadPoolExecutor()
 
 
 # Decorator for async run cpu bound functions
-def cpu_bound_async(func: Callable[_P, _T]) -> Callable[_P, Awaitable[_T]]:
+def cpu_bound_async(func: Callable[P, T]) -> Callable[P, Awaitable[T]]:
     """Run cpu-bound sync function as async.
 
     Uses ThreadPoolExecutor to run function in parallel.
@@ -28,9 +28,9 @@ def cpu_bound_async(func: Callable[_P, _T]) -> Callable[_P, Awaitable[_T]]:
     """
 
     @functools.wraps(func)
-    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
-        _loop = asyncio.get_event_loop()
-        return await _loop.run_in_executor(_executor, func, *args, **kwargs)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, func, *args, **kwargs)
 
     return wrapper
 

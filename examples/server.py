@@ -1,6 +1,8 @@
 import asyncio
 import logging
+
 import coloredlogs  # type: ignore
+
 import whiteproto
 
 PRESHARED_KEY = b"secret"
@@ -16,7 +18,7 @@ async def on_connection(connection: whiteproto.WhiteConnection):
     while True:
         try:
             data = await connection.read()
-        except whiteproto.ConnectionClosed as err:
+        except whiteproto.ConnectionClosedError as err:
             if err.reason:
                 logging.info(
                     "Connection closed with code %d (%s)",

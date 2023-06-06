@@ -1,23 +1,24 @@
 """WhiteProto compiled wrapper"""
 
 from typing import Tuple
+
+from whiteproto._proto.parser import HEADER_SIZE, detect_packet, make_header
 from whiteproto._proto.wrapper import (
-    ClientHello,
-    ServerHello,
-    UpgradeProtocolAsk,
-    UpgradeProtocolAck,
-    ClientChallengeResponse,
-    CloseConnection,
-    EncryptedMessage,
-    CloseConnectionReason,
-    UpgradeProtocolResult,
-    ChunkedData,
-    ControlMessage,
     AnyMessage,
-    ControlMessageType,
     AnyMessageType,
+    ChunkedData,
+    ClientChallengeResponse,
+    ClientHello,
+    CloseConnection,
+    CloseConnectionReason,
+    ControlMessage,
+    ControlMessageType,
+    EncryptedMessage,
+    ServerHello,
+    UpgradeProtocolAck,
+    UpgradeProtocolAsk,
+    UpgradeProtocolResult,
 )
-from whiteproto._proto.parser import detect_packet, make_header, HEADER_SIZE
 
 MIN_VERSION = 0x01
 CURRENT_VERSION = 0x02

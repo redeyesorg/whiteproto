@@ -1,0 +1,18 @@
+@startuml Transmission
+skinparam backgroundColor #FDFDFD
+skinparam participant {
+  BackgroundColor LightBlue
+}
+
+participant Origin as "Origin"
+participant Remote as "Remote"
+
+== Data Transmission ==
+
+Origin -> Origin: Generate random nonce
+Origin -> Origin: Encrypt data\n(ChaCha20-Poly1305)
+Origin -> Origin: Increment sequence number
+Origin --> Remote: EncryptedMessage\n(seq number, nonce, ciphertext)
+Remote -> Remote: Decrypt message
+Remote -> Remote: Verify sequence number
+@enduml

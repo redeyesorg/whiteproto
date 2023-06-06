@@ -1,0 +1,24 @@
+@startuml Handshake
+skinparam backgroundColor #FDFDFD
+skinparam participant {
+  BackgroundColor PaleGreen
+}
+
+participant Client as "Client"
+participant Server as "Server"
+
+== Handshake Process ==
+
+Client -> Server: ClientHello\n(pubkey)
+Server -> Server: Calculate shared key\n(ECDH)
+Server -> Server: Generate session nonce
+Server -> Client: ServerHello\n(pubkey, session nonce)
+Client -> Client: Calculate shared key\n(ECDH)
+Client -> Server: ClientChallengeResponse\n(resp, sign of resp)
+Server -> Server: Verify challenge response
+Server --> Client: EncryptedMessage\n(seq number, nonce, ciphertext)
+Client -> Client: Decrypt "ping" message
+Client --> Server: EncryptedMessage\n(seq number, session nonce, ciphertext)
+Server -> Server: Decrypt "pong" message
+
+@enduml

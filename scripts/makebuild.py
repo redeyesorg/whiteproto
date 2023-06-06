@@ -4,10 +4,10 @@
 # type: ignore
 
 import os
-import sys
-import toml
 import shutil
+import sys
 
+import toml
 from ninja_syntax import Writer
 
 # check python version
@@ -80,13 +80,16 @@ ninja_writer.variable("poetry", poetry_executable)
 
 ninja_writer.variable("protoc_args", f"-I{proto_dir} --python_out={dest_dir}")
 
-ninja_writer.variable("pflake8_args", "--benchmark --statistics")
-ninja_writer.variable("pylint_args", "--rcfile=.pylintrc")
+ninja_writer.variable("isort_args", "--profile black --check-only --diff")
+ninja_writer.variable("black_args", "--check --diff")
+ninja_writer.variable("flake8_args", "--benchmark --statistics")
 
 
 ninja_writer.rule("CLEAN", "$py scripts/clean.py")
-ninja_writer.rule("FLAKE_LINT", "${poetry} run pflake8 ${pflake8_args} $in")
-ninja_writer.rule("PYLINT_LINT", "${poetry} run pylint ${pylint_args} $in")
+ninja_writer.rule("ISORT_LINT", "${poetry} run isort ${isort_args} $in")
+ninja_writer.rule("BLACK_LINT", "${poetry} run black ${black_args} $in")
+ninja_writer.rule("FLAKE_LINT", "${poetry} run flake8 ${flake8_args} $in")
+ninja_writer.rule("MYPY_LINT", "${poetry} run mypy $in")
 
 
 ninja_writer.rule("PROTOC", "${protoc} ${protoc_args} $in")
@@ -96,10 +99,14 @@ ninja_writer.rule("PROTOC", "${protoc} ${protoc_args} $in")
 
 ninja_writer.build("clean", "CLEAN")
 
+ninja_writer.build("lint_isort", "ISORT_LINT", inputs=["whiteproto"])
+ninja_writer.build("lint_black", "BLACK_LINT", inputs=["whiteproto"])
 ninja_writer.build("lint_flake", "FLAKE_LINT", inputs=["whiteproto"])
-ninja_writer.build("lint_pylint", "PYLINT_LINT", inputs=["whiteproto"])
+ninja_writer.build("lint_mypy", "MYPY_LINT", inputs=["whiteproto"])
 
-ninja_writer.build("lint", "phony", inputs=["lint_flake", "lint_pylint"])
+ninja_writer.build(
+    "lint", "phony", inputs=["lint_isort", "lint_black", "lint_flake", "lint_mypy"]
+)
 
 ninja_writer.build(
     compiled_targets,

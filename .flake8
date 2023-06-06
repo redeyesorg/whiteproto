@@ -1,0 +1,33 @@
+[flake8]
+max-line-length = 100
+show-source = true
+ignore =
+    D1, Q000, C8, D400, D401, WPS412,
+    WPS436, WPS410, WPS115, WPS110, D208,
+    WPS432, WPS323, WPS305, WPS601, WPS420,
+    WPS615, W503
+per-file-ignores =
+    whiteproto/_proto/wrapper.py:WPS601
+exclude =
+    .git
+    build
+    dist
+    venv
+    docs
+    *.egg-info
+    scripts
+    whiteproto/_proto
+; max-function-expressions = 15
+; max-module-expressions = 15
+max-imports = 20
+; max-module-members = 15
+; max-returns = 10
+; max-arguments = 10
+max-awaits = 10
+max-methods = 15
+max-cognitive-average = 15
+max-cognitive-score = 20
+max-import-from-members = 30
+max-local-variables = 15
+max-raises = 10
+max-expressions = 15

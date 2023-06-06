@@ -6,10 +6,14 @@ import abc
 import enum
 from typing import Any, Callable, Type, TypeVar
 
-from google.protobuf.pyext.cpp_message import GeneratedProtocolMessageType  # type: ignore
+from google.protobuf.pyext.cpp_message import (
+    GeneratedProtocolMessageType,  # type: ignore
+)
 
 try:
-    from whiteproto._proto._compiled.org.redeyes import secure_pb2 as _compiled  # type: ignore
+    from whiteproto._proto._compiled.org.redeyes import (
+        secure_pb2 as _compiled,  # type: ignore
+    )
 except ImportError:
     raise ImportError(
         "Failed to import compiled protocol. Are you forgot to run `ninja -v protos`?"

@@ -3,16 +3,14 @@
 import enum
 import os
 
+from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
-from cryptography.exceptions import InvalidSignature, InvalidTag
-
-from whiteproto.utils import cpu_bound_async
+from whiteproto.async_executor import cpu_bound_async
 
 
 def _generate_random(length: int) -> bytes:
@@ -30,7 +28,7 @@ class InvalidStateError(Exception):
     """Context is in an invalid state."""
 
 
-class EncryptionFailure(Exception):
+class EncryptionFailureError(Exception):
     """Encryption failed."""
 
 
@@ -44,7 +42,7 @@ def _verify_signature(
     return True
 
 
-class CryptoContext:
+class CryptoContext:  # noqa: WPS306
     """WhiteProto crypto context."""
 
     _preshared_key: bytes
@@ -61,21 +59,33 @@ class CryptoContext:
     # region Public API
 
     def get_public_key(self: "CryptoContext") -> ec.EllipticCurvePublicKey:
-        """Returns self public key."""
+        """Get my public key.
+
+        Returns:
+            Self public key
+        """
         return self._private_key.public_key()
 
     def get_public_bytes(self: "CryptoContext") -> bytes:
-        """Returns self public key as CompressedPoint X962 encoded bytes."""
+        """Get my public key as bytes.
+
+        Returns:
+            Public key bytes as X962 compressed point
+        """
         return self.get_public_key().public_bytes(
             encoding=Encoding.X962,
             format=PublicFormat.CompressedPoint,
         )
 
     def get_session_nonce(self: "CryptoContext") -> bytes:
-        """Returns session nonce."""
+        """Get session nonce.
+
+        Returns:
+            Session nonce
+        """
         return self._session_nonce
 
-    def set_preshared_key(self: "CryptoContext", preshared_key: bytes):
+    def set_preshared_key(self: "CryptoContext", preshared_key: bytes) -> None:
         """Sets preshared key.
 
         Args:
@@ -83,7 +93,7 @@ class CryptoContext:
         """
         self._preshared_key = preshared_key
 
-    def set_session_nonce(self: "CryptoContext", session_nonce: bytes):
+    def set_session_nonce(self: "CryptoContext", session_nonce: bytes) -> None:
         """Sets session nonce.
 
         Args:
@@ -92,7 +102,9 @@ class CryptoContext:
         self._session_nonce = session_nonce
 
     @cpu_bound_async
-    def set_remote_public_key(self: "CryptoContext", remote_public_bytes: bytes):
+    def set_remote_public_key(
+        self: "CryptoContext", remote_public_bytes: bytes
+    ) -> None:
         """Sets remote public key.
 
         Method with side effects. Also calculates shared secret using
@@ -217,6 +229,7 @@ class CryptoContext:
 
         Raises:
             InvalidStateError: Remote public key not set
+            EncryptionFailureError: Decryption failed
         """
         if not self._session_cryptor:
             raise InvalidStateError("Session key not set")
@@ -225,6 +238,6 @@ class CryptoContext:
                 nonce, ciphertext, b"whiteproto-seq-%d" % seq
             )
         except InvalidTag:
-            raise EncryptionFailure() from None
+            raise EncryptionFailureError() from None
 
     # endregion

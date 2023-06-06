@@ -1,22 +1,22 @@
 """WhiteProto server implementation."""
 
-import logging
 import asyncio
+import logging
 from typing import Awaitable, Callable
 
-from whiteproto.connection import WhiteConnection, PeerType
 from whiteproto._proto import BUFFER_SIZE, CloseConnectionReason
+from whiteproto.connection import PeerType, WhiteConnection
 
 logger = logging.getLogger(__name__)
 
 
-async def _fallback_handler(connection: WhiteConnection):
+async def _fallback_handler(connection: WhiteConnection) -> None:
     # close all connections if no callback set
     logger.error("No callback set, closing connection")
     await connection.close(CloseConnectionReason.OK)
 
 
-class WhiteServer:
+class WhiteServer:  # noqa: WPS306
     """WhiteProto server"""
 
     _server: asyncio.AbstractServer
@@ -34,7 +34,11 @@ class WhiteServer:
     def set_callback(
         self: "WhiteServer", callback: Callable[[WhiteConnection], Awaitable[None]]
     ) -> None:
-        """Sets callback for new connections"""
+        """Sets callback for new connections
+
+        Args:
+            callback: Callback
+        """
         self._on_connection = callback
 
     async def start(self: "WhiteServer") -> None:
@@ -43,6 +47,16 @@ class WhiteServer:
             self._handle_client, self.host, self.port, limit=BUFFER_SIZE
         )
         logger.info("Server started on %s:%d", self.host, self.port)
+
+    async def serve_forever(self: "WhiteServer") -> None:
+        """Serves connections forever
+
+        Raises:
+            RuntimeError: Server not started
+        """
+        if not self._server:
+            raise RuntimeError("Server not started")
+        await self._server.serve_forever()
 
     async def _handle_client(
         self: "WhiteServer", reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -53,9 +67,3 @@ class WhiteServer:
             return
         logger.info("Initialized!")
         await self._on_connection(connection)
-
-    async def serve_forever(self: "WhiteServer") -> None:
-        """Serves connections forever"""
-        if not self._server:
-            raise RuntimeError("Server not started")
-        await self._server.serve_forever()
