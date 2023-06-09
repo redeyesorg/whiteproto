@@ -7,3 +7,4 @@ build.ninja
 project.ninja
 dist/
 .mypy_cache/
+.task/

@@ -1,0 +1,18 @@
+version: "3"
+
+tasks:
+  proto:
+    desc: Compile the proto files
+    cmds:
+      - protoc -Iproto --python_out=whiteproto/_proto/_compiled proto/org/redeyes/secure.proto
+    sources:
+      - proto/**/*.proto
+    targets:
+      - whiteproto/_proto/_compiled/org/redeyes/secure_pb2.py
+    status:
+      - test -f whiteproto/_proto/_compiled/org/redeyes/secure_pb2.py
+
+  default:
+    desc: Compile the project dependencies
+    deps:
+      - proto

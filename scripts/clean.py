@@ -6,19 +6,13 @@
 import os
 import shutil
 
-FILES_TO_REMOVE = [
-    "build.ninja",
-    "project.ninja",
-    ".ninja_log",
-    ".ninja_deps",
-]
-
 EXTS_TO_REMOVE = [".log", ".pyc", ".pyo", "_pb2.py"]
 
 DIRS_TO_REMOVE = [
     ".venv",
     "dist",
     "docs",
+    "whiteproto/_proto/_compiled/org",
 ]
 
 SUBDIRS_TO_REMOVE = [
@@ -30,11 +24,6 @@ print("[i] Cleaning directories...")
 for _dir in DIRS_TO_REMOVE:
     if os.path.exists(_dir):
         shutil.rmtree(_dir)
-
-print("[i] Cleaning files...")
-for _file in FILES_TO_REMOVE:
-    if os.path.exists(_file):
-        os.remove(_file)
 
 
 print("[i] Cleaning caches...")
