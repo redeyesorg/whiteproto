@@ -1030,17 +1030,6 @@ files = [
 pbr = ">=2.0.0,<2.1.0 || >2.1.0"
 
 [[package]]
-name = "toml"
-version = "0.10.2"
-description = "Python Library for Tom's Obvious, Minimal Language"
-optional = false
-python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
-files = [
-    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
-    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
-]
-
-[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -1049,6 +1038,17 @@ python-versions = ">=3.7"
 files = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
+]
+
+[[package]]
+name = "types-protobuf"
+version = "4.23.0.1"
+description = "Typing stubs for protobuf"
+optional = false
+python-versions = "*"
+files = [
+    {file = "types-protobuf-4.23.0.1.tar.gz", hash = "sha256:7bd5ea122a057b11a82b785d9de464932a1e9175fe977a4128adef11d7f35547"},
+    {file = "types_protobuf-4.23.0.1-py3-none-any.whl", hash = "sha256:c926104f69ea62103846681b35b690d8d100ecf86c6cdda16c850a1313a272e4"},
 ]
 
 [[package]]
@@ -1218,4 +1218,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "9d9b9467a58bf3894ed624f0864b9634c15e4a2618f9cdd19837a25ae5316749"
+content-hash = "3834e24bc3266359ec81de15109d8053d5e805752fda9c392f212008e4ab7957"
