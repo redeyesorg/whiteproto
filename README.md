@@ -50,12 +50,10 @@ docker run -v $PWD:/src whiteproto-builder
 ```
 
 ### Local
-Requires ninja, poetry, and protoc 3.19.0+
+Requires task, poetry, and protoc 3.19.0+
 
 ```sh
-scripts/makebuild.py
-ninja -v protos
-poetry build
+task clean build
 ```
 
 ## Install

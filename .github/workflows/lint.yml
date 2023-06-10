@@ -10,22 +10,16 @@ jobs:
       with:
         submodules: true
 
-    - name: Setup Ninja
-      uses: ashutoshvarma/setup-ninja@master
+    - name: Install Task
+      uses: arduino/setup-task@v1
       with:
-        version: 1.11.1
-
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v2
+        version: 3.x
 
     - name: Install Poetry
       uses: snok/install-poetry@v1
 
     - name: Install dependencies
-      run: poetry install
-
-    - name: Make build files
-      run: poetry run python scripts/makebuild.py
+      run: task dependencies
 
     - name: Run linters
-      run: ninja -v lint
+      run: task lint

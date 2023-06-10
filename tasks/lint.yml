@@ -1,38 +1,23 @@
 version: "3"
 
 tasks:
-  dependencies:
-    desc: Install the project dependencies
-    cmds:
-      - poetry install
-    internal: true
-    run: once
-
   flake8:
     desc: Lint the project with flake8
-    deps:
-      - dependencies
     cmds:
       - poetry run flake8 --benchmark --statistics whiteproto
 
   mypy:
     desc: Lint the project with mypy
-    deps:
-      - dependencies
     cmds:
       - poetry run mypy whiteproto
 
   isort:
     desc: Lint the project with isort
-    deps:
-      - dependencies
     cmds:
       - poetry run isort --profile black --check-only --diff whiteproto
 
   black:
     desc: Lint the project with black
-    deps:
-      - dependencies
     cmds:
       - poetry run black --check --diff whiteproto
 

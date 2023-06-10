@@ -2,10 +2,6 @@
 cp -r /src /build
 cd /build/src
 
-scripts/makebuild.py
-poetry install
-ninja -v lint
-ninja -v protos
-poetry build
+task clean build
 
-mv /build/src/dist /src
+cp -r /build/src/dist /src

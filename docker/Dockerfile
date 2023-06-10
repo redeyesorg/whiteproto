@@ -2,12 +2,14 @@ FROM alpine:edge
 
 RUN apk add --update \
     protoc python3 python3-dev \
-    py3-pip ninja gcc musl-dev \
+    py3-pip curl gcc musl-dev \
     libffi-dev rust cargo openssl-dev
 
 RUN pip install --upgrade pip
 RUN pip install --upgrade --ignore-installed \
-    poetry toml
+    poetry
+
+RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/bin
 
 WORKDIR /build
 COPY docker/build-docker.sh /build

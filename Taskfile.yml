@@ -10,6 +10,11 @@ tasks:
     cmds:
       - python scripts/clean.py
 
+  dependencies:
+    desc: Install the project dependencies
+    cmds:
+      - poetry install -n --no-root
+
   build:
     desc: Build the project
     deps:
