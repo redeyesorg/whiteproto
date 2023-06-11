@@ -27,17 +27,7 @@ _DESCRIPTOR_MAP = {
     0xA1: EncryptedMessage,
 }
 
-_DESCRIPTOR_MAP_REV = {
-    None: 0x00,
-    ClientHello: 0x01,
-    ServerHello: 0x02,
-    UpgradeProtocolAsk: 0x03,
-    UpgradeProtocolAck: 0x04,
-    ClientChallengeResponse: 0x05,
-    CloseConnection: 0x06,
-    ChunkedData: 0x07,
-    EncryptedMessage: 0xA1,
-}
+_DESCRIPTOR_MAP_REV = {v: k for k, v in _DESCRIPTOR_MAP.items()}
 
 HEADER_SIZE = struct.calcsize("!BI")
 
