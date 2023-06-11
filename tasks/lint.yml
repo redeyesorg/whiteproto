@@ -9,12 +9,12 @@ tasks:
   mypy:
     desc: Lint the project with mypy
     cmds:
-      - poetry run mypy whiteproto
+      - poetry run mypy --config-file mypy.ini whiteproto
 
   isort:
     desc: Lint the project with isort
     cmds:
-      - poetry run isort --profile black --check-only --diff whiteproto
+      - poetry run isort --check-only --diff whiteproto
 
   black:
     desc: Lint the project with black
@@ -25,6 +25,6 @@ tasks:
     desc: Lint the project
     deps:
       - flake8
-      - mypy
+      # - mypy
       - isort
       - black

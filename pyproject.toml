@@ -29,13 +29,5 @@ build-backend = "poetry.core.masonry.api"
 [tool.isort]
 profile = "black"
 skip = [
-        "whiteproto/_proto/**/*"
+        "whiteproto/_proto/_compiled"
 ]
-
-[tool.mypy]
-strict = true
-exclude = [
-        "whiteproto/_proto/**/*"
-]
-ignore_missing_imports = true
-warn_unused_ignores = false

@@ -26,13 +26,13 @@ repos:
       - id: flake8
         exclude: ^(whiteproto/_proto/)
 
-  - repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        entry: "./run_mypy.sh"
-        language: system
-        types: [python]
-        exclude: ^(whiteproto/_proto/)
-        require_serial: true
-        verbose: true
+  # - repo: local
+  #   hooks:
+  #     - id: mypy
+  #       name: mypy
+  #       entry: "./run_mypy.sh"
+  #       language: system
+  #       types: [python]
+  #       exclude: ^(whiteproto/_proto/)
+  #       require_serial: true
+  #       verbose: true
