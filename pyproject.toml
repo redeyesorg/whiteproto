@@ -9,7 +9,7 @@ include = ["whiteproto/_proto/_compiled/**/*_pb2.py"]
 [tool.poetry.dependencies]
 python = "^3.10"
 protobuf = "^4.21.2"
-cryptography = "^41.0.0"
+cryptography = "^41.0.3"
 coloredlogs = "^15.0.1"
 zstd = "^1.5.2"
 
